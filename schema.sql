@@ -19,16 +19,16 @@ CREATE TABLE IF NOT EXISTS notes (
   title_search TEXT
 );
 
-CREATE TABLE "session" (
-  "sid" varchar NOT NULL COLLATE "default",
+-- Таблица для сессий с первичным ключом сразу в объявлении
+CREATE TABLE IF NOT EXISTS "session" (
+  "sid" varchar NOT NULL COLLATE "default" PRIMARY KEY,
   "sess" json NOT NULL,
   "expire" timestamp(6) NOT NULL
 )
 WITH (OIDS=FALSE);
 
-ALTER TABLE "session" ADD CONSTRAINT "session_pkey" PRIMARY KEY ("sid");
-
-CREATE INDEX "IDX_session_expire" ON "session" ("expire");
+-- Индекс для сессий по времени истечения
+CREATE INDEX IF NOT EXISTS "IDX_session_expire" ON "session" ("expire");
 
 -- Обновляем существующие записи для title_search
 UPDATE notes SET title_search = unaccent(lower(title));

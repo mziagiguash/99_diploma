@@ -7,7 +7,7 @@
   "main": "index.js",
   "scripts": {
     "init:schema": "node initSchema.js",
-    "start": "node applySchema.js && node index.js",
+    "start": "node initSchema.js && node index.js",
     "test": "echo \"Tests passed\" && exit 0",
     "build": "rimraf public/bundle.* && rollup --config"
   },
