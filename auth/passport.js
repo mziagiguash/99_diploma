@@ -1,7 +1,7 @@
 const passport = require('passport');
-const GoogleStrategy = require('passport-google-oauth20').Strategy;
-const GitHubStrategy = require('passport-github2').Strategy;
-const FacebookStrategy = require('passport-facebook').Strategy;
+// const GoogleStrategy = require('passport-google-oauth20').Strategy;
+// const GitHubStrategy = require('passport-github2').Strategy;
+// const FacebookStrategy = require('passport-facebook').Strategy;
 
 const db = require('../db/database');
 
@@ -14,6 +14,7 @@ passport.deserializeUser(async (id, done) => {
   done(null, result.rows[0]);
 });
 
+/*
 // Google OAuth
 passport.use(new GoogleStrategy({
   clientID: process.env.GOOGLE_CLIENT_ID,
@@ -38,7 +39,6 @@ passport.use(new GoogleStrategy({
     done(err);
   }
 }));
-
 
 // GitHub OAuth
 passport.use(new GitHubStrategy({
@@ -90,3 +90,4 @@ passport.use(new FacebookStrategy({
     done(err);
   }
 }));
+*/
