@@ -1,5 +1,5 @@
 {
-  "name": "notes",
+  "name": "99_diploma",
   "version": "1.0.0",
   "author": "",
   "description": "",
@@ -12,14 +12,14 @@
     "build": "rimraf public/bundle.* && rollup --config"
   },
   "engines": {
-    "node": "=12.x || =14.x || =15.x"
+     "node": "18.x"
   },
   "dependencies": {
     "bcrypt": "^6.0.0",
     "cors": "^2.8.5",
     "dompurify": "^3.2.6",
     "dotenv": "^17.0.1",
-    "express": "^4.21.2",
+    "express": "^4.18.2",
     "express-session": "^1.18.1",
     "marked": "^16.0.0",
     "nunjucks": "^3.2.4",
