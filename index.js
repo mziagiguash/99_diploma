@@ -21,7 +21,7 @@ const app = express();
 app.use(
   session({
     store: new pgSession({
-      pool: db.pool,         // ← pool нужно экспортировать из db/database.js
+      pool: db.pool, // используй подключение к Postgres
       tableName: 'session',
     }),
     secret: process.env.JWT_SECRET || "super_secure_jwt_secret",
