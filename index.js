@@ -5,33 +5,36 @@ const session = require("express-session");
 const cors = require("cors");
 const nunjucks = require("nunjucks");
 const db = require("./db/database");
+const pgSession = require('connect-pg-simple')(session);
 
-const authRoutes = require("./routes/auth");   // ← роуты логина/регистрации
-const notesRoutes = require("./routes/notes"); // ← роуты заметок
+const authRoutes = require("./routes/auth");
+const notesRoutes = require("./routes/notes");
 const { ensureAuth, redirectIfAuth } = require("./middlewares/auth");
 const passport = require('passport');
 require('./auth/passport');
 
-
 const crypto = require("crypto");
-
 
 const app = express();
 
-// Парсеры и статика
-app.use(express.static("public"));
-app.use(cors());
-app.use(express.urlencoded({ extended: true }));
-app.use(express.json()); // Обязательно до всех JSON-роутов!
-
-// --- Сессии ---
+// --- Сессии с PostgreSQL-хранилищем ---
 app.use(
   session({
+    store: new pgSession({
+      pool: db.pool,         // ← pool нужно экспортировать из db/database.js
+      tableName: 'session',
+    }),
     secret: process.env.JWT_SECRET || "super_secure_jwt_secret",
     resave: false,
     saveUninitialized: false,
   })
 );
+
+// Парсеры и статика
+app.use(express.static("public"));
+app.use(cors());
+app.use(express.urlencoded({ extended: true }));
+app.use(express.json());
 
 app.use(passport.initialize());
 app.use(passport.session());

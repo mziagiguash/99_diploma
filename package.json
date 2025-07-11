@@ -12,10 +12,11 @@
     "build": "rimraf public/bundle.* && rollup --config"
   },
   "engines": {
-     "node": "20.x"
+    "node": "20.x"
   },
   "dependencies": {
     "bcrypt": "^6.0.0",
+    "connect-pg-simple": "^10.0.0",
     "cors": "^2.8.5",
     "dompurify": "^3.2.6",
     "dotenv": "^17.0.1",
