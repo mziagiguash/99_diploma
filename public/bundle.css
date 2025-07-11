@@ -1,0 +1,79 @@
+
+/* global.css */
+
+.markdown {
+  font-style: italic;
+  color: #333;
+  margin: 10px 0;
+  /* можно добавить другие стили для markdown */
+  white-space: pre-wrap; /* чтобы переносы работали */
+  line-height: 1.5;
+}
+
+/* Уменьшаем размер всех кнопок */
+.uk-button {
+  font-size: 0.85rem; /* уменьшенный размер шрифта */
+  padding: 6px 10px;   /* уменьшаем внутренние отступы */
+  min-width: 70px;     /* можно подогнать под свой макет */
+}
+
+.markdown h1,
+.markdown h2,
+.markdown h3,
+.markdown h4,
+.markdown h5,
+.markdown h6 {
+  margin-top: 1rem;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.markdown p {
+  margin-bottom: 0.75rem;
+  line-height: 1.6;
+}
+
+.markdown ul,
+.markdown ol {
+  margin: 0.5rem 0 1rem 1.5rem;
+  padding-left: 1rem;
+}
+
+.markdown li {
+  margin-bottom: 0.25rem;
+}
+
+.markdown blockquote {
+  margin: 1rem 0;
+  padding-left: 1rem;
+  border-left: 4px solid #ddd;
+  color: #666;
+  font-style: italic;
+  background: #f9f9f9;
+}
+
+.markdown code {
+  background-color: #f4f4f4;
+  padding: 2px 5px;
+  border-radius: 4px;
+  font-family: monospace;
+  font-size: 90%;
+}
+
+.markdown pre {
+  background-color: #2d2d2d;
+  color: #f8f8f2;
+  padding: 1rem;
+  border-radius: 6px;
+  overflow: auto;
+  font-family: monospace;
+  font-size: 0.9rem;
+}
+
+.markdown pre code {
+  background: none;
+  padding: 0;
+  color: inherit;
+}
+.card-container.svelte-2uk6ir{width:100%}.date.svelte-2uk6ir{font-style:italic}.title.svelte-2uk6ir{margin-top:0}.button-row.svelte-2uk6ir{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
