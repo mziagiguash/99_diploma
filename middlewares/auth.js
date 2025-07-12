@@ -6,6 +6,18 @@ function md5(str) {
   return crypto.createHash("md5").update(str.trim().toLowerCase()).digest("hex");
 }
 
+function ensureAuth(req, res, next) {
+  if (req.isAuthenticated() && req.user) {
+    // 🛠️ если не задан userId в сессии — добавим вручную
+    if (!req.session.userId) {
+      req.session.userId = req.user.id;
+    }
+    return next();
+  }
+
+  res.redirect('/');
+}
+
 // Создание демо-заметки, если у пользователя ещё нет
 async function createDemoNoteIfNone(userId) {
   try {

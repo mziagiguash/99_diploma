@@ -1,21 +1,34 @@
 const passport = require('passport');
-// const GoogleStrategy = require('passport-google-oauth20').Strategy;
-// const GitHubStrategy = require('passport-github2').Strategy;
-// const FacebookStrategy = require('passport-facebook').Strategy;
+const GoogleStrategy = require('passport-google-oauth20').Strategy;
+const GitHubStrategy = require('passport-github2').Strategy;
+const FacebookStrategy = require('passport-facebook').Strategy;
 
 const db = require('../db/database');
 
+// Сериализация
 passport.serializeUser((user, done) => {
   done(null, user.id);
 });
 
+
 passport.deserializeUser(async (id, done) => {
-  const result = await db.query('SELECT * FROM users WHERE id = $1', [id]);
-  done(null, result.rows[0]);
+  try {
+    const result = await db.query('SELECT * FROM users WHERE id = $1', [id]);
+    const user = result.rows[0];
+
+    // 🛠️ Явно добавим userId в сессию для совместимости
+    // passport сам этого не делает
+    if (user) {
+      user.userId = user.id; // для совместимости
+    }
+
+    done(null, user);
+  } catch (err) {
+    done(err);
+  }
 });
 
-/*
-// Google OAuth
+// === Google OAuth ===
 passport.use(new GoogleStrategy({
   clientID: process.env.GOOGLE_CLIENT_ID,
   clientSecret: process.env.GOOGLE_CLIENT_SECRET,
@@ -40,7 +53,7 @@ passport.use(new GoogleStrategy({
   }
 }));
 
-// GitHub OAuth
+// === GitHub OAuth ===
 passport.use(new GitHubStrategy({
   clientID: process.env.GITHUB_CLIENT_ID,
   clientSecret: process.env.GITHUB_CLIENT_SECRET,
@@ -65,12 +78,12 @@ passport.use(new GitHubStrategy({
   }
 }));
 
-// Facebook OAuth
+// === Facebook OAuth ===
 passport.use(new FacebookStrategy({
   clientID: process.env.FACEBOOK_CLIENT_ID,
   clientSecret: process.env.FACEBOOK_CLIENT_SECRET,
   callbackURL: '/auth/facebook/callback',
-  profileFields: ['id', 'emails', 'name'] // важно: чтобы получить email
+  profileFields: ['id', 'emails', 'name']
 }, async (accessToken, refreshToken, profile, done) => {
   try {
     const email = profile.emails?.[0]?.value || `fb_${profile.id}`;
@@ -90,4 +103,3 @@ passport.use(new FacebookStrategy({
     done(err);
   }
 }));
-*/
