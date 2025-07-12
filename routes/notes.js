@@ -1,25 +1,18 @@
 const express = require('express');
 const db = require('../db/database');
 const { ensureAuth } = require('../middlewares/auth');
-const router = express.Router();
 const PDFDocument = require('pdfkit');
 const path = require('path');
 
-const fontDir = path.join(__dirname, 'fonts'); // Папка со шрифтами
+const router = express.Router();
+const fontDir = path.join(__dirname, '..', 'fonts');
 
-
-
-// 🔍 Получение заметок по фильтру и поиску
+// 📥 Получение заметок с фильтрацией, поиском и пагинацией
 router.get("/notes", ensureAuth, async (req, res) => {
   const userId = req.session.userId;
-  if (!userId) {
-    return res.status(401).send("Неавторизован");
-  }
-
   const { filter = "1month", search = "", page = 1 } = req.query;
 
   let createdAfter = "1970-01-01";
-
   if (filter === "1month") {
     createdAfter = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
   } else if (filter === "3months") {
@@ -41,47 +34,33 @@ router.get("/notes", ensureAuth, async (req, res) => {
       query += ` AND title_search ILIKE $${values.length}`;
     }
 
-    query += `
-      ORDER BY created_at DESC
-      LIMIT $${values.length + 1} OFFSET $${values.length + 2}
-    `;
+    const paginatedQuery = `${query} ORDER BY created_at DESC LIMIT $${values.length + 1} OFFSET $${values.length + 2}`;
+    const paginatedValues = [...values, limit, offset];
 
-    values.push(limit, offset);
+    const notesResult = await db.query(paginatedQuery, paginatedValues);
 
-    const result = await db.query(query, values);
+    const countQuery = `SELECT COUNT(*) FROM notes WHERE user_id = $1 AND created_at >= $2` +
+      (search.trim() ? ` AND title_search ILIKE $3` : '');
+    const countResult = await db.query(countQuery, values);
+    const total = parseInt(countResult.rows[0].count, 10);
 
-    const data = result.rows.map(row => {
-      const match = [];
+    const data = notesResult.rows.map(row => ({
+      ...row,
+      _id: row.id,
+      created: row.created_at,
+      matches: search.trim() && row.title.toLowerCase().includes(search.toLowerCase()) ? [search.toLowerCase()] : undefined
+    }));
 
-      if (search.trim()) {
-        const s = search.toLowerCase();
-        const title = (row.title || "").toLowerCase();
-        if (title.includes(s)) match.push(s);
-      }
-
-      return {
-        ...row,
-        _id: row.id,
-        created: row.created_at,
-        matches: match.length ? match : undefined,
-      };
-    });
-
-    res.json({
-      data,
-      hasMore: result.rows.length === limit,
-    });
+    res.json({ data, hasMore: offset + limit < total });
   } catch (err) {
-    console.error(err);
-    res.status(500).send("Ошибка загрузки заметок");
+    console.error("Ошибка при получении заметок:", err);
+    res.status(500).send("Ошибка сервера");
   }
 });
-
 
 // ✅ Создание заметки
 router.post("/notes", ensureAuth, async (req, res) => {
   const { title, text } = req.body;
-
   if (!title || !text) {
     return res.status(400).json({ error: "Title и Text обязательны" });
   }
@@ -95,22 +74,22 @@ router.post("/notes", ensureAuth, async (req, res) => {
     );
 
     const note = result.rows[0];
-    note._id = note.id;
-    note.created = note.created_at;
-
-    res.json(note);
+    res.json({
+      ...note,
+      _id: note.id,
+      created: note.created_at
+    });
   } catch (err) {
     console.error("Ошибка при создании заметки:", err);
     res.status(500).json({ error: "Ошибка при создании заметки" });
   }
 });
 
-// 📄 Получить одну заметку
+// 🔍 Получить одну заметку
 router.get("/notes/:id", ensureAuth, async (req, res) => {
   const { id } = req.params;
-
   const result = await db.query(
-    'SELECT * FROM notes WHERE id = $1 AND user_id = $2',
+    `SELECT * FROM notes WHERE id = $1 AND user_id = $2`,
     [id, req.session.userId]
   );
 
@@ -119,10 +98,11 @@ router.get("/notes/:id", ensureAuth, async (req, res) => {
   }
 
   const note = result.rows[0];
-  note._id = note.id;
-  note.created = note.created_at;
-
-  res.json(note);
+  res.json({
+    ...note,
+    _id: note.id,
+    created: note.created_at
+  });
 });
 
 // ✏️ Обновление заметки
@@ -133,11 +113,8 @@ router.put("/notes/:id", ensureAuth, async (req, res) => {
   try {
     const result = await db.query(
       `UPDATE notes
-       SET title = $1,
-           text = $2,
-           title_search = unaccent(lower($1))
-       WHERE id = $3 AND user_id = $4
-       RETURNING *`,
+       SET title = $1, text = $2, title_search = unaccent(lower($1))
+       WHERE id = $3 AND user_id = $4 RETURNING *`,
       [title, text, id, req.session.userId]
     );
 
@@ -146,103 +123,84 @@ router.put("/notes/:id", ensureAuth, async (req, res) => {
     }
 
     const note = result.rows[0];
-    note._id = note.id;
-    note.created = note.created_at;
-
-    res.json(note);
+    res.json({
+      ...note,
+      _id: note.id,
+      created: note.created_at
+    });
   } catch (err) {
-    console.error(err);
+    console.error("Ошибка при обновлении:", err);
     res.status(500).json({ error: "Ошибка при обновлении" });
   }
 });
 
-
-// 📦 Архивировать
-router.post('/notes/:id/archive', ensureAuth, async (req, res) => {
-  const { id } = req.params;
-
+// 📦 Архивирование / Восстановление
+router.post("/notes/:id/archive", ensureAuth, async (req, res) => {
   await db.query(
-    'UPDATE notes SET archived = TRUE WHERE id = $1 AND user_id = $2',
-    [id, req.session.userId]
+    `UPDATE notes SET archived = TRUE WHERE id = $1 AND user_id = $2`,
+    [req.params.id, req.session.userId]
   );
-
   res.json({ success: true });
 });
 
-
-// 🔄 Восстановить из архива
-router.post('/notes/:id/restore', ensureAuth, async (req, res) => {
-  const { id } = req.params;
-
+router.post("/notes/:id/restore", ensureAuth, async (req, res) => {
   await db.query(
-    'UPDATE notes SET archived = FALSE WHERE id = $1 AND user_id = $2',
-    [id, req.session.userId]
+    `UPDATE notes SET archived = FALSE WHERE id = $1 AND user_id = $2`,
+    [req.params.id, req.session.userId]
   );
-
   res.json({ success: true });
 });
 
-
-// 🗑 Удалить заархивированную заметку
-router.delete('/notes/:id', ensureAuth, async (req, res) => {
-  const { id } = req.params;
-
+// 🗑 Удаление одной или всех архивных заметок
+router.delete("/notes/:id", ensureAuth, async (req, res) => {
   await db.query(
-    'DELETE FROM notes WHERE id = $1 AND user_id = $2 AND archived = TRUE',
-    [id, req.session.userId]
+    `DELETE FROM notes WHERE id = $1 AND user_id = $2 AND archived = TRUE`,
+    [req.params.id, req.session.userId]
   );
-
   res.json({ success: true });
 });
 
-
-// 🗑 Удалить все архивные заметки
-router.delete('/notes', ensureAuth, async (req, res) => {
+router.delete("/notes", ensureAuth, async (req, res) => {
   await db.query(
-    'DELETE FROM notes WHERE user_id = $1 AND archived = TRUE',
+    `DELETE FROM notes WHERE user_id = $1 AND archived = TRUE`,
     [req.session.userId]
   );
-
   res.json({ success: true });
 });
 
-
-router.get('/notes/:id/pdf', async (req, res) => {
+// 📄 Скачать PDF
+router.get("/notes/:id/pdf", ensureAuth, async (req, res) => {
   const id = req.params.id;
+
   try {
-    const result = await db.query('SELECT * FROM notes WHERE id = $1', [id]);
+    const result = await db.query(
+      `SELECT * FROM notes WHERE id = $1 AND user_id = $2`,
+      [id, req.session.userId]
+    );
+
     if (result.rows.length === 0) {
-      return res.status(404).send('Заметка не найдена');
+      return res.status(404).send("Заметка не найдена");
     }
 
     const note = result.rows[0];
-    const doc = new PDFDocument();
-    const fontDir = path.join(__dirname, '..', 'fonts');
-    // Регистрируем шрифты с понятными ключами
-    doc.registerFont('DejaVuSans', path.join(fontDir, 'DejaVuSans.ttf'));
-    doc.registerFont('DejaVuSansBold', path.join(fontDir, 'DejaVuSans-Bold.ttf'));
-    doc.registerFont('StatusRegular', path.join(fontDir, 'StatusRegular.ttf'));
-    doc.registerFont('LorenzoSans', path.join(fontDir, 'Lorenzo Sans.ttf'));
 
-    // Используем основной шрифт с поддержкой кириллицы
+    const doc = new PDFDocument();
+    doc.registerFont("DejaVuSans", path.join(fontDir, "DejaVuSans.ttf"));
+    doc.registerFont("DejaVuSansBold", path.join(fontDir, "DejaVuSans-Bold.ttf"));
     doc.font('DejaVuSans');
 
-    // Заголовок крупным шрифтом, жирным
-    doc.font('DejaVuSansBold').fontSize(20).text(note.title, { align: 'center' });
+    doc.font("DejaVuSansBold").fontSize(20).text(note.title, { align: "center" });
     doc.moveDown();
+    doc.font("DejaVuSans").fontSize(12).text(note.text);
 
-    // Основной текст заметки обычным шрифтом
-    doc.font('DejaVuSans').fontSize(12).text(note.text);
-
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="note-${id}.pdf"`);
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `attachment; filename="note-${id}.pdf"`);
 
     doc.pipe(res);
     doc.end();
-
   } catch (err) {
-    console.error('Ошибка при генерации PDF:', err);
-    res.status(500).send('Ошибка при генерации PDF');
+    console.error("Ошибка при генерации PDF:", err);
+    res.status(500).send("Ошибка при генерации PDF");
   }
 });
 
