@@ -13,20 +13,29 @@ const { ensureAuth, redirectIfAuth } = require("./middlewares/auth");
 const passport = require('passport');
 require('./auth/passport');
 
+
 const crypto = require("crypto");
 
 const app = express();
 
-// --- Сессии с PostgreSQL-хранилищем ---
+// 💡 Обязательно для Render, Vercel и любых прокси
+app.set("trust proxy", 1);
+
+// 🧠 Сессии: PostgreSQL-хранилище + cookie
 app.use(
   session({
     store: new pgSession({
-      pool: db.pool, // используй подключение к Postgres
-      tableName: 'session',
+      pool: db.pool,          // подключение к БД
+      tableName: "session",   // имя таблицы сессий
     }),
     secret: process.env.JWT_SECRET || "super_secure_jwt_secret",
     resave: false,
     saveUninitialized: false,
+    cookie: {
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 дней
+      sameSite: "lax",                 // важно: иначе cookie не примется
+      secure: process.env.NODE_ENV === "production", // cookie только по HTTPS
+    },
   })
 );
 
