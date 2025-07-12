@@ -56,7 +56,7 @@ export const getNotes = ({ filter = "1month", search = "", page = 1 } = {}) => {
         isArchived: !!(n.isArchived || n.archived || n.archived_at),
         matches: n.matches || [], // 🔍 получаем matches от сервера, если есть
       })),
-      hasMore: raw.length === 20,
+      hasMore: raw.length === 10,
     };
   });
 };

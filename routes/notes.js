@@ -10,39 +10,46 @@ const fontDir = path.join(__dirname, '..', 'fonts');
 // 📥 Получение заметок с фильтрацией, поиском и пагинацией
 router.get("/notes", ensureAuth, async (req, res) => {
   const userId = req.session.userId;
-  const { filter = "1month", search = "", page = 1 } = req.query;
-
-  let createdAfter = "1970-01-01";
-  if (filter === "1month") {
-    createdAfter = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-  } else if (filter === "3months") {
-    createdAfter = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
-  }
+  const { filter = "1month", search = "", page = "1" } = req.query;
 
   const limit = 10;
-  const offset = (parseInt(page) - 1) * limit;
+  const pageNum = parseInt(page, 10) || 1;
+  const offset = (pageNum - 1) * limit;
 
   try {
-    const values = [userId, createdAfter];
-    let query = `
-      SELECT *, created_at AS created FROM notes
-      WHERE user_id = $1 AND created_at >= $2
-    `;
+    const values = [userId];
+    let query = `SELECT *, created_at AS created FROM notes WHERE user_id = $1`;
+    let countQuery = `SELECT COUNT(*) FROM notes WHERE user_id = $1`;
+
+    if (filter === "archive") {
+      query += ` AND archived = TRUE`;
+      countQuery += ` AND archived = TRUE`;
+    } else {
+      let createdAfter = "1970-01-01";
+      if (filter === "1month") {
+        createdAfter = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+      } else if (filter === "3months") {
+        createdAfter = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
+      }
+      values.push(createdAfter);
+      query += ` AND created_at >= $${values.length} AND archived = FALSE`;
+      countQuery += ` AND created_at >= $${values.length} AND archived = FALSE`;
+    }
 
     if (search.trim()) {
       values.push(`%${search.toLowerCase()}%`);
       query += ` AND title_search ILIKE $${values.length}`;
+      countQuery += ` AND title_search ILIKE $${values.length}`;
     }
 
-    const paginatedQuery = `${query} ORDER BY created_at DESC LIMIT $${values.length + 1} OFFSET $${values.length + 2}`;
+    query += ` ORDER BY created_at DESC LIMIT $${values.length + 1} OFFSET $${values.length + 2}`;
     const paginatedValues = [...values, limit, offset];
 
-    const notesResult = await db.query(paginatedQuery, paginatedValues);
-
-    const countQuery = `SELECT COUNT(*) FROM notes WHERE user_id = $1 AND created_at >= $2` +
-      (search.trim() ? ` AND title_search ILIKE $3` : '');
+    const notesResult = await db.query(query, paginatedValues);
     const countResult = await db.query(countQuery, values);
+
     const total = parseInt(countResult.rows[0].count, 10);
+    const hasMore = offset + limit < total;
 
     const data = notesResult.rows.map(row => ({
       ...row,
@@ -51,7 +58,9 @@ router.get("/notes", ensureAuth, async (req, res) => {
       matches: search.trim() && row.title.toLowerCase().includes(search.toLowerCase()) ? [search.toLowerCase()] : undefined
     }));
 
-    res.json({ data, hasMore: offset + limit < total });
+    console.log({ pageNum, offset, limit, total, hasMore });
+
+    res.json({ data, hasMore });
   } catch (err) {
     console.error("Ошибка при получении заметок:", err);
     res.status(500).send("Ошибка сервера");
@@ -187,7 +196,7 @@ router.get("/notes/:id/pdf", ensureAuth, async (req, res) => {
     const doc = new PDFDocument();
     doc.registerFont("DejaVuSans", path.join(fontDir, "DejaVuSans.ttf"));
     doc.registerFont("DejaVuSansBold", path.join(fontDir, "DejaVuSans-Bold.ttf"));
-    doc.font('DejaVuSans');
+
 
     doc.font("DejaVuSansBold").fontSize(20).text(note.title, { align: "center" });
     doc.moveDown();
