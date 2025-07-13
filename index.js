@@ -10,8 +10,7 @@ const pgSession = require('connect-pg-simple')(session);
 const authRoutes = require("./routes/auth");
 const notesRoutes = require("./routes/notes");
 const { ensureAuth, redirectIfAuth } = require("./middlewares/auth");
-const passport = require('passport');
-require('./auth/passport');
+
 
 
 const crypto = require("crypto");
@@ -44,9 +43,6 @@ app.use(express.static("public"));
 app.use(cors());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
-
-app.use(passport.initialize());
-app.use(passport.session());
 
 // Роуты
 app.use(authRoutes);
