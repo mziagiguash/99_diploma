@@ -1,6 +1,7 @@
-require('dotenv').config({
-  path: process.env.NODE_ENV === 'production' ? '.env.production' : '.env.development',
+require("dotenv").config({
+  path: process.env.NODE_ENV === "production" ? ".env.production" : ".env",
 });
+
 
 console.log('TELEGRAM_BOT_USERNAME:', process.env.TELEGRAM_BOT_USERNAME);
 console.log('TELEGRAM_BOT_TOKEN:', process.env.TELEGRAM_BOT_TOKEN ? '***' : 'NOT SET');
@@ -40,9 +41,9 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
 // ===== Passport =====
-require('./routes/auth/passport'); 
-app.use(passport.initialize());
-app.use(passport.session());
+  require('./routes/auth/passport');
+  app.use(passport.initialize());
+  app.use(passport.session());
 
 // ===== Nunjucks =====
 const env = nunjucks.configure("views", {

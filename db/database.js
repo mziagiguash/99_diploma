@@ -1,15 +1,17 @@
 const { Pool } = require("pg");
-require("dotenv").config();
+
+if (process.env.NODE_ENV !== "production") {
+  require("dotenv").config(); // локально
+}
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: {
-    rejectUnauthorized: false, // важно для Render PostgreSQL
-  },
+  ssl: process.env.NODE_ENV === "production"
+    ? { rejectUnauthorized: false } // Render требует SSL
+    : false,
 });
-
 
 module.exports = {
   query: (text, params) => pool.query(text, params),
-  pool, // ← обязательно экспортируем pool
+  pool,
 };
