@@ -1,4 +1,6 @@
-require("dotenv").config(); // В самом начале — .env
+require('dotenv').config({
+  path: process.env.NODE_ENV === 'production' ? '.env.production' : '.env.development',
+});
 
 const express = require("express");
 const session = require("express-session");
@@ -10,6 +12,9 @@ const pgSession = require('connect-pg-simple')(session);
 const authRoutes = require("./routes/auth");
 const notesRoutes = require("./routes/notes");
 const { ensureAuth, redirectIfAuth } = require("./middlewares/auth");
+
+const passport = require('passport');
+require('./auth/passport');
 
 
 
@@ -47,6 +52,10 @@ app.use(express.json());
 // Роуты
 app.use(authRoutes);
 app.use(notesRoutes);
+
+app.use(passport.initialize());
+app.use(passport.session());
+
 
 // Nunjucks конфигурация
 const env = nunjucks.configure("views", {

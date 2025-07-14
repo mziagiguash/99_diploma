@@ -2,60 +2,45 @@ const express = require('express');
 const bcrypt = require('bcrypt');
 const db = require('../db/database');
 const passport = require('passport');
+const crypto = require('crypto');
 const router = express.Router();
 
-// 🔧 Функция создания демо-заметки
-async function createDemoNoteIfNone(userId) {
-  try {
-    const existing = await db.query(
-      'SELECT id FROM notes WHERE user_id = $1 LIMIT 1',
-      [userId]
-    );
+const checkTelegramAuth = require("../utils/checkTelegramAuth");
+const { createDemoNoteIfNone } = require("../utils/demoNote");
 
-    if (existing.rows.length === 0) {
-      await db.query(
-        `INSERT INTO notes (user_id, title, text)
-         VALUES ($1, $2, $3)`,
-        [
-          userId,
-          'Demo',
-          `
-# 👋 Добро пожаловать!
+// === Telegram Auth ===
+router.post('/auth/telegram', async (req, res) => {
+  const user = req.body;
 
-Это ваша **демо-заметка**, оформленная в **Markdown**. Вот примеры:
-
-## 🔤 Форматирование
-
-- **Жирный**
-- _Курсив_
-- ~~Зачёркнутый~~
-- [Ссылка](https://example.com)
-
-## ✅ Чекбоксы
-
-- [x] Попробовать Markdown
-- [ ] Создать свою первую заметку
-
-## 📊 Таблица
-
-| Задача       | Статус |
-|--------------|--------|
-| Регистрация  | ✅     |
-| Демо-заметка | ✅     |
-
-Приятной работы! ✨
-          `.trim(),
-        ]
-      );
-    }
-  } catch (err) {
-    console.error("Ошибка при создании демо-заметки:", err);
+  if (!checkTelegramAuth(user)) {
+    return res.status(403).send('Bad signature');
   }
-}
 
-// ───── OAuth ─────
+  const username = user.username || `tg_${user.id}`;
 
-// Google auth
+  try {
+    const result = await db.query('SELECT * FROM users WHERE username = $1', [username]);
+    let dbUser = result.rows[0];
+
+    if (!dbUser) {
+      const insert = await db.query(
+        'INSERT INTO users (username, password) VALUES ($1, $2) RETURNING *',
+        [username, 'telegram_placeholder']
+      );
+      dbUser = insert.rows[0];
+    }
+
+    req.session.userId = dbUser.id;
+    await createDemoNoteIfNone(dbUser.id);
+
+    res.sendStatus(200);
+  } catch (err) {
+    console.error('Ошибка Telegram входа:', err);
+    res.sendStatus(500);
+  }
+});
+
+// === Google OAuth ===
 router.get('/auth/google', passport.authenticate('google', { scope: ['email', 'profile'] }));
 
 router.get('/auth/google/callback',
@@ -66,7 +51,7 @@ router.get('/auth/google/callback',
   }
 );
 
-// GitHub
+// === GitHub OAuth ===
 router.get('/auth/github', passport.authenticate('github', { scope: ['user:email'] }));
 
 router.get('/auth/github/callback',
@@ -77,19 +62,7 @@ router.get('/auth/github/callback',
   }
 );
 
-// Facebook
-router.get('/auth/facebook', passport.authenticate('facebook', { scope: ['email'] }));
-
-router.get('/auth/facebook/callback',
-  passport.authenticate('facebook', { failureRedirect: '/' }),
-  async (req, res) => {
-    await createDemoNoteIfNone(req.user.id);
-    res.redirect('/dashboard');
-  }
-);
-
-// ───── Стандартная регистрация ─────
-
+// === Signup ===
 router.post('/signup', async (req, res) => {
   const { username, password } = req.body;
   if (!username || !password) {
@@ -112,8 +85,7 @@ router.post('/signup', async (req, res) => {
   }
 });
 
-// ───── Логин ─────
-
+// === Login ===
 router.post('/login', async (req, res) => {
   const { username, password } = req.body;
   if (!username || !password) {
@@ -135,8 +107,7 @@ router.post('/login', async (req, res) => {
   res.redirect('/dashboard');
 });
 
-// ───── Выход ─────
-
+// === Logout ===
 router.get('/logout', (req, res) => {
   req.session.destroy(() => res.redirect('/'));
 });
