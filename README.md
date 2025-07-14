@@ -21,7 +21,7 @@
 
 ### 1. Клонирование и установка зависимостей
 
-git clone https://github.com/giguash/99_diploma.git
+git clone https://github.com/mziagiguash/99_diploma.git
 cd 99_diploma
 npm install
 
