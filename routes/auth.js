@@ -2,11 +2,12 @@ const express = require('express');
 const bcrypt = require('bcrypt');
 const db = require('../db/database');
 const passport = require('passport');
-const crypto = require('crypto');
 const router = express.Router();
 
 const checkTelegramAuth = require("../utils/checkTelegramAuth");
 const { createDemoNoteIfNone } = require("../utils/demoNote");
+
+
 
 // === Telegram Auth ===
 router.post('/auth/telegram', async (req, res) => {
