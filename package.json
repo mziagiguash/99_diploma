@@ -7,8 +7,7 @@
   "main": "index.js",
   "scripts": {
     "init:schema": "node initSchema.js",
-    "start": "NODE_ENV=production node initSchema.js && node index.js",
-    "start:dev": "NODE_ENV=development node initSchema.js && node index.js",
+    "start": "node initSchema.js && node index.js",
     "test": "echo \"Tests passed\" && exit 0",
     "build": "rimraf public/bundle.* && rollup --config"
   },
