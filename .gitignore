@@ -107,3 +107,6 @@ dist
 
 *.sample.js
 
+.env*
+.env
+.env.*
