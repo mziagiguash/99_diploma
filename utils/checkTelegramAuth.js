@@ -1,19 +1,21 @@
 const crypto = require('crypto');
 
 function checkTelegramAuth(data) {
-  const secret = crypto.createHash('sha256').update(process.env.TELEGRAM_BOT_TOKEN).digest();
-  const checkHash = data.hash;
+  const { hash, ...rest } = data;
+  const token = process.env.TELEGRAM_BOT_TOKEN;
 
-  const dataCheckString = Object.keys(data)
-    .filter(key => key !== 'hash')
+  const secret = crypto.createHash('sha256').update(token).digest();
+  const sorted = Object.keys(rest)
     .sort()
-    .map(key => `${key}=${data[key]}`)
+    .map(key => `${key}=${rest[key]}`)
     .join('\n');
 
-  const hmac = crypto.createHmac('sha256', secret).update(dataCheckString).digest('hex');
+  const hmac = crypto
+    .createHmac('sha256', secret)
+    .update(sorted)
+    .digest('hex');
 
-  // Важно: Telegram присылает hash в hex, сравниваем в нижнем регистре
-  return hmac === checkHash;
+  return hmac === hash;
 }
 
 module.exports = checkTelegramAuth;

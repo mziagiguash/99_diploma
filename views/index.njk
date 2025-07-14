@@ -53,35 +53,16 @@
       <i class="fab fa-github"></i>&nbsp;GitHub
     </a>
   </p>
-{% if process.env.NODE_ENV == 'production' %}
+{% if NODE_ENV == 'production' %}
 <p uk-margin>
   <script async src="https://telegram.org/js/telegram-widget.js?22"
     data-telegram-login="NoteLoginBot"
     data-size="large"
     data-userpic="false"
     data-request-access="write"
-    data-onauth="onTelegramAuth(user)">
+    data-auth-url="https://nine9-diploma.onrender.com/auth/telegram">
   </script>
 </p>
-
-<script>
-  async function onTelegramAuth(user) {
-    console.log('Telegram user:', user);
-
-    const response = await fetch('/auth/telegram', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(user),
-    });
-
-    if (response.ok) {
-      window.location.href = '/dashboard';
-    } else {
-      alert('Ошибка авторизации через Telegram');
-    }
-  }
-</script>
 {% endif %}
-
 
 {% endblock %}

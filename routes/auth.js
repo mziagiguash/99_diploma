@@ -13,30 +13,30 @@ const { createDemoNoteIfNone } = require("../utils/demoNote");
 router.post('/auth/telegram', async (req, res) => {
   const user = req.body;
 
+  // Проверка подписи Telegram
   if (!checkTelegramAuth(user)) {
+    console.error('❌ Invalid Telegram signature');
     return res.status(403).send('Bad signature');
   }
 
   const username = user.username || `tg_${user.id}`;
 
   try {
-    const result = await db.query('SELECT * FROM users WHERE username = $1', [username]);
-    let dbUser = result.rows[0];
+    let dbUser = (await db.query('SELECT * FROM users WHERE username = $1', [username])).rows[0];
 
     if (!dbUser) {
-      const insert = await db.query(
+      dbUser = (await db.query(
         'INSERT INTO users (username, password) VALUES ($1, $2) RETURNING *',
         [username, 'telegram_placeholder']
-      );
-      dbUser = insert.rows[0];
+      )).rows[0];
     }
 
     req.session.userId = dbUser.id;
     await createDemoNoteIfNone(dbUser.id);
 
-    res.sendStatus(200);
+    res.redirect('/dashboard'); // Telegram будет редиректить сюда
   } catch (err) {
-    console.error('Ошибка Telegram входа:', err);
+    console.error('Telegram auth error:', err);
     res.sendStatus(500);
   }
 });
