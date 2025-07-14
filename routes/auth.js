@@ -4,42 +4,7 @@ const db = require('../db/database');
 const passport = require('passport');
 const router = express.Router();
 
-const checkTelegramAuth = require("../utils/checkTelegramAuth");
 const { createDemoNoteIfNone } = require("../utils/demoNote");
-
-
-
-// === Telegram Auth ===
-router.post('/auth/telegram', async (req, res) => {
-  const user = req.body;
-
-  // Проверка подписи Telegram
-  if (!checkTelegramAuth(user)) {
-    console.error('❌ Invalid Telegram signature');
-    return res.status(403).send('Bad signature');
-  }
-
-  const username = user.username || `tg_${user.id}`;
-
-  try {
-    let dbUser = (await db.query('SELECT * FROM users WHERE username = $1', [username])).rows[0];
-
-    if (!dbUser) {
-      dbUser = (await db.query(
-        'INSERT INTO users (username, password) VALUES ($1, $2) RETURNING *',
-        [username, 'telegram_placeholder']
-      )).rows[0];
-    }
-
-    req.session.userId = dbUser.id;
-    await createDemoNoteIfNone(dbUser.id);
-
-    res.redirect('/dashboard'); // Telegram будет редиректить сюда
-  } catch (err) {
-    console.error('Telegram auth error:', err);
-    res.sendStatus(500);
-  }
-});
 
 // === Google OAuth ===
 router.get('/auth/google', passport.authenticate('google', { scope: ['email', 'profile'] }));

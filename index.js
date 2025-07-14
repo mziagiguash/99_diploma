@@ -2,10 +2,6 @@ require("dotenv").config({
   path: process.env.NODE_ENV === "production" ? ".env.production" : ".env",
 });
 
-
-console.log('TELEGRAM_BOT_USERNAME:', process.env.TELEGRAM_BOT_USERNAME);
-console.log('TELEGRAM_BOT_TOKEN:', process.env.TELEGRAM_BOT_TOKEN ? '***' : 'NOT SET');
-
 const express = require("express");
 const session = require("express-session");
 const cors = require("cors");
