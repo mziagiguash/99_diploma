@@ -4,7 +4,7 @@ const db = require('../../db/database');
 const checkTelegramAuth = require('../../utils/checkTelegramAuth');
 const { createDemoNoteIfNone } = require('../../utils/demoNote');
 
-router.post('/telegram', async (req, res) => {
+router.post('/auth/telegram', async (req, res) => {
   const data = req.body;
 
   if (!checkTelegramAuth(data)) {
@@ -13,13 +13,14 @@ router.post('/telegram', async (req, res) => {
 
   try {
     const username = data.username || `telegram_user_${data.id}`;
+
     let result = await db.query('SELECT * FROM users WHERE username = $1', [username]);
     let user = result.rows[0];
 
     if (!user) {
       result = await db.query(
         'INSERT INTO users (username, password) VALUES ($1, $2) RETURNING *',
-        [username, 'telegram_placeholder']
+        [username, 'oauth_placeholder']
       );
       user = result.rows[0];
     }
@@ -27,10 +28,10 @@ router.post('/telegram', async (req, res) => {
     req.session.userId = user.id;
     await createDemoNoteIfNone(user.id);
 
-    res.status(200).send('ok');
+    res.sendStatus(200);
   } catch (err) {
     console.error('Telegram auth error:', err);
-    res.status(500).send('Server error');
+    res.sendStatus(500);
   }
 });
 
