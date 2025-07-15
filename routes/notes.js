@@ -177,7 +177,8 @@ router.delete("/notes", ensureAuth, async (req, res) => {
   res.json({ success: true });
 });
 
-// 📄 Скачать PDF через puppeteer (Markdown -> HTML -> PDF)
+
+// 📄 Скачать PDF через Puppeteer
 router.get("/notes/:id/pdf", ensureAuth, async (req, res) => {
   const id = req.params.id;
 
@@ -192,41 +193,44 @@ router.get("/notes/:id/pdf", ensureAuth, async (req, res) => {
     }
 
     const note = result.rows[0];
-    const markdown = `# ${note.title}\n\n${note.text}`;
-    const html = md.render(markdown);
 
     const browser = await puppeteer.launch({
-      args: ["--no-sandbox", "--disable-setuid-sandbox"],
+      executablePath: process.env.CHROMIUM_PATH || '/usr/bin/chromium-browser',
+      args: ['--no-sandbox', '--disable-setuid-sandbox'],
     });
+
     const page = await browser.newPage();
 
-    await page.setContent(`
+    const html = `
       <html>
         <head>
-          <meta charset="utf-8">
+          <meta charset="utf-8" />
           <style>
-            body { font-family: Arial, sans-serif; padding: 40px; }
-            h1 { text-align: center; }
+            body { font-family: sans-serif; padding: 40px; }
+            h1 { font-size: 24px; text-align: center; }
+            .content { margin-top: 20px; white-space: pre-wrap; }
           </style>
         </head>
-        <body>${html}</body>
+        <body>
+          <h1>${note.title}</h1>
+          <div class="content">${note.text.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</div>
+        </body>
       </html>
-    `);
+    `;
 
-    const pdfBuffer = await page.pdf({
-      format: "A4",
-      printBackground: true,
-    });
+    await page.setContent(html, { waitUntil: 'networkidle0' });
+    const pdfBuffer = await page.pdf({ format: 'A4' });
 
     await browser.close();
 
     res.setHeader("Content-Type", "application/pdf");
-    res.setHeader("Content-Disposition", `attachment; filename=\"note-${id}.pdf\"`);
+    res.setHeader("Content-Disposition", `attachment; filename="note-${id}.pdf"`);
     res.send(pdfBuffer);
   } catch (err) {
-    console.error("Ошибка при генерации PDF:", err);
+    console.error("❌ Ошибка при генерации PDF:", err);
     res.status(500).send("Ошибка при генерации PDF");
   }
 });
+
 
 module.exports = router;
