@@ -1,11 +1,11 @@
 const express = require('express');
 const db = require('../db/database');
 const { ensureAuth } = require('../middlewares/auth');
-const PDFDocument = require('pdfkit');
-const path = require('path');
+const markdownIt = require('markdown-it');
+const puppeteer = require('puppeteer');
 
 const router = express.Router();
-const fontDir = path.join(__dirname, '..', 'fonts');
+const md = new markdownIt();
 
 // 📥 Получение заметок с фильтрацией, поиском и пагинацией
 router.get("/notes", ensureAuth, async (req, res) => {
@@ -177,7 +177,7 @@ router.delete("/notes", ensureAuth, async (req, res) => {
   res.json({ success: true });
 });
 
-// 📄 Скачать PDF
+// 📄 Скачать PDF через puppeteer (Markdown -> HTML -> PDF)
 router.get("/notes/:id/pdf", ensureAuth, async (req, res) => {
   const id = req.params.id;
 
@@ -192,21 +192,37 @@ router.get("/notes/:id/pdf", ensureAuth, async (req, res) => {
     }
 
     const note = result.rows[0];
+    const markdown = `# ${note.title}\n\n${note.text}`;
+    const html = md.render(markdown);
 
-    const doc = new PDFDocument();
-    doc.registerFont("DejaVuSans", path.join(fontDir, "DejaVuSans.ttf"));
-    doc.registerFont("DejaVuSansBold", path.join(fontDir, "DejaVuSans-Bold.ttf"));
+    const browser = await puppeteer.launch({
+      args: ["--no-sandbox", "--disable-setuid-sandbox"],
+    });
+    const page = await browser.newPage();
 
+    await page.setContent(`
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <style>
+            body { font-family: Arial, sans-serif; padding: 40px; }
+            h1 { text-align: center; }
+          </style>
+        </head>
+        <body>${html}</body>
+      </html>
+    `);
 
-    doc.font("DejaVuSansBold").fontSize(20).text(note.title, { align: "center" });
-    doc.moveDown();
-    doc.font("DejaVuSans").fontSize(12).text(note.text);
+    const pdfBuffer = await page.pdf({
+      format: "A4",
+      printBackground: true,
+    });
+
+    await browser.close();
 
     res.setHeader("Content-Type", "application/pdf");
-    res.setHeader("Content-Disposition", `attachment; filename="note-${id}.pdf"`);
-
-    doc.pipe(res);
-    doc.end();
+    res.setHeader("Content-Disposition", `attachment; filename=\"note-${id}.pdf\"`);
+    res.send(pdfBuffer);
   } catch (err) {
     console.error("Ошибка при генерации PDF:", err);
     res.status(500).send("Ошибка при генерации PDF");

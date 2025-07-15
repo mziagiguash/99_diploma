@@ -1,6 +1,4 @@
-// 🔧 Функция создания демо-заметки
 // utils/demoNote.js
-
 const db = require('../db/database');
 
 async function createDemoNoteIfNone(userId) {
@@ -11,14 +9,7 @@ async function createDemoNoteIfNone(userId) {
     );
 
     if (existing.rows.length === 0) {
-      await db.query(
-        `INSERT INTO notes (user_id, title, text)
-         VALUES ($1, $2, $3)`,
-        [
-          userId,
-          'Demo',
-          `
-# 👋 Добро пожаловать!
+      const markdown = `# 👋 Добро пожаловать!
 
 Это ваша **демо-заметка**, оформленная в **Markdown**. Вот примеры:
 
@@ -41,13 +32,16 @@ async function createDemoNoteIfNone(userId) {
 | Регистрация  | ✅     |
 | Демо-заметка | ✅     |
 
-Приятной работы! ✨
-          `.trim(),
-        ]
+Приятной работы! ✨`;
+
+      await db.query(
+        `INSERT INTO notes (user_id, title, text, title_search)
+         VALUES ($1, $2, $3, unaccent(lower($2)))`,
+        [userId, 'Demo', markdown]
       );
     }
   } catch (err) {
-    console.error("Ошибка при создании демо-заметки:", err);
+    console.error("❌ Ошибка при создании демо-заметки:", err);
   }
 }
 
