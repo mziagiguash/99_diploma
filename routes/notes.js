@@ -1,11 +1,11 @@
 const express = require('express');
 const db = require('../db/database');
 const { ensureAuth } = require('../middlewares/auth');
-const markdownIt = require('markdown-it');
-const puppeteer = require('puppeteer');
+const PDFDocument = require('pdfkit');
+const path = require('path');
 
 const router = express.Router();
-const md = new markdownIt();
+const fontDir = path.join(__dirname, '..', 'fonts');
 
 // 📥 Получение заметок с фильтрацией, поиском и пагинацией
 router.get("/notes", ensureAuth, async (req, res) => {
@@ -177,8 +177,7 @@ router.delete("/notes", ensureAuth, async (req, res) => {
   res.json({ success: true });
 });
 
-
-// 📄 Скачать PDF через Puppeteer
+// 📄 Скачать PDF
 router.get("/notes/:id/pdf", ensureAuth, async (req, res) => {
   const id = req.params.id;
 
@@ -194,43 +193,24 @@ router.get("/notes/:id/pdf", ensureAuth, async (req, res) => {
 
     const note = result.rows[0];
 
-    const browser = await puppeteer.launch({
-      executablePath: process.env.CHROMIUM_PATH || '/usr/bin/chromium-browser',
-      args: ['--no-sandbox', '--disable-setuid-sandbox'],
-    });
+    const doc = new PDFDocument();
+    doc.registerFont("DejaVuSans", path.join(fontDir, "DejaVuSans.ttf"));
+    doc.registerFont("DejaVuSansBold", path.join(fontDir, "DejaVuSans-Bold.ttf"));
 
-    const page = await browser.newPage();
 
-    const html = `
-      <html>
-        <head>
-          <meta charset="utf-8" />
-          <style>
-            body { font-family: sans-serif; padding: 40px; }
-            h1 { font-size: 24px; text-align: center; }
-            .content { margin-top: 20px; white-space: pre-wrap; }
-          </style>
-        </head>
-        <body>
-          <h1>${note.title}</h1>
-          <div class="content">${note.text.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</div>
-        </body>
-      </html>
-    `;
-
-    await page.setContent(html, { waitUntil: 'networkidle0' });
-    const pdfBuffer = await page.pdf({ format: 'A4' });
-
-    await browser.close();
+    doc.font("DejaVuSansBold").fontSize(20).text(note.title, { align: "center" });
+    doc.moveDown();
+    doc.font("DejaVuSans").fontSize(12).text(note.text);
 
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader("Content-Disposition", `attachment; filename="note-${id}.pdf"`);
-    res.send(pdfBuffer);
+
+    doc.pipe(res);
+    doc.end();
   } catch (err) {
-    console.error("❌ Ошибка при генерации PDF:", err);
+    console.error("Ошибка при генерации PDF:", err);
     res.status(500).send("Ошибка при генерации PDF");
   }
 });
-
 
 module.exports = router;
